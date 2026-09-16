@@ -1,4 +1,4 @@
-const CACHE_NAME = 'streifenhelfer-v2';
+const CACHE_NAME = 'interne Abläufe I.Zug-v1';
 const ASSETS_TO_CACHE = [
   './',
   './interneAB.html',
