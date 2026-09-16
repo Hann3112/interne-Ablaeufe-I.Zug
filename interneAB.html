@@ -1,0 +1,1537 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <!-- PWA Einstellungen für das iPhone -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a2540">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Streifenhelfer">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<!-- Service Worker starten -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js');
+    });
+  }
+</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Streifenhelfer</title>
+  <style>
+    :root {
+      --primary-navy: #0a2540;
+      --police-blue: #0056b3;
+      --police-blue-hover: #003d80;
+      --accent-gold: #f1c40f;
+      --bg-gray: #f4f6f9;
+      --card-bg: #ffffff;
+      --text-dark: #1e293b;
+      --text-muted: #64748b;
+      --danger-red: #dc2626;
+      --danger-red-hover: #b91c1c;
+      --border-color: #e2e8f0;
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg-gray);
+      color: var(--text-dark);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Header */
+    header {
+      background-color: var(--primary-navy);
+      color: #ffffff;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      z-index: 10;
+      min-height: 60px;
+    }
+
+    .header-title-container {
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+      padding-right: 10px;
+      overflow: hidden;
+    }
+
+    .app-subtitle {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--accent-gold);
+      font-weight: 700;
+    }
+
+    .header-title {
+      font-size: 17px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .search-toggle-btn {
+      background: none;
+      border: none;
+      color: #ffffff;
+      cursor: pointer;
+      padding: 6px;
+      display: none; /* Only visible on list pages */
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      transition: background 0.2s;
+    }
+
+    .search-toggle-btn:active {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .search-toggle-btn svg {
+      width: 22px;
+      height: 22px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Search Container */
+    .search-bar-container {
+      background-color: var(--primary-navy);
+      padding: 0 16px 12px 16px;
+      display: none;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .search-bar-container.active {
+      display: block;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      font-size: 15px;
+      outline: none;
+      background: #ffffff;
+      color: var(--text-dark);
+      padding-right: 44px;
+    }
+
+    .search-bar-inner {
+      position: relative;
+    }
+
+    .search-clear-btn {
+      position: absolute;
+      top: 50%;
+      right: 14px;
+      transform: translateY(-50%);
+      border: none;
+      background: none;
+      color: var(--text-muted);
+      font-size: 18px;
+      cursor: pointer;
+      padding: 6px;
+      line-height: 1;
+      border-radius: 50%;
+    }
+
+    .search-clear-btn:hover {
+      color: var(--police-blue);
+    }
+
+    .search-meta {
+      margin-top: 8px;
+      color: #dbeafe;
+      font-size: 13px;
+      min-height: 1.2em;
+    }
+
+    /* Main Content Area */
+    main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+
+    .grid-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* Spacer am Ende der Liste, damit nichts unter dem Zurück-Button verschwindet */
+    .grid-container::after {
+      content: "";
+      display: block;
+      height: 110px; 
+      flex-shrink: 0;
+    }
+
+    /* Buttons */
+    .btn {
+      background-color: var(--card-bg);
+      color: var(--police-blue);
+      border: 1.5px solid var(--border-color);
+      padding: 16px 18px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      text-align: left;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.15s ease;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+      background-color: #ebf5ff;
+      border-color: var(--police-blue);
+    }
+
+    .btn-arrow {
+      color: var(--text-muted);
+      font-size: 18px;
+    }
+
+    .btn-danger {
+      background-color: var(--danger-red);
+      color: #ffffff;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(220, 38, 38, 0.3);
+    }
+
+    .btn-danger:active {
+      background-color: var(--danger-red-hover);
+    }
+
+    /* Cards / Info Boxes */
+    .card {
+      background-color: var(--card-bg);
+      border-radius: 10px;
+      padding: 14px 16px;
+      border-left: 4px solid var(--police-blue);
+      box-shadow: var(--shadow);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+      line-height: 1.4;
+      cursor: default;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .card.clickable {
+      cursor: pointer;
+    }
+
+    .card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+    }
+
+    .card-title {
+      font-weight: 600;
+      color: var(--text-dark);
+    }
+
+    .card-value {
+      font-weight: 700;
+      color: var(--police-blue);
+      text-align: right;
+    }
+
+    .doc-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+    }
+
+    .table-section {
+      background-color: var(--card-bg);
+      border-radius: 10px;
+      padding: 14px 16px;
+      box-shadow: var(--shadow);
+      margin-bottom: 12px;
+      overflow-x: auto;
+    }
+
+    .info-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    .info-table th,
+    .info-table td {
+      border: 1px solid var(--border-color);
+      padding: 8px 6px;
+      text-align: center;
+    }
+
+    .info-table th {
+      background-color: #eff6ff;
+      color: var(--police-blue);
+      font-weight: 700;
+    }
+
+    .info-note {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-left: 4px solid var(--accent-gold);
+      background-color: #fffbe6;
+      color: var(--text-dark);
+      border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .checklist {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .checklist-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background-color: var(--card-bg);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border-color);
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s ease;
+    }
+
+    .checklist-item:active {
+      transform: scale(0.99);
+    }
+
+    .checklist-checkbox {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--police-blue);
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--police-blue);
+      font-size: 14px;
+      flex-shrink: 0;
+      background-color: #ffffff;
+    }
+
+    .checklist-item.checked {
+      background-color: #f1f5f9;
+      border-color: #cbd5e1;
+    }
+
+    .checklist-item.checked .checklist-checkbox {
+      background-color: var(--police-blue);
+      color: #ffffff;
+      border-color: var(--police-blue);
+    }
+
+    .checklist-item.checked .checklist-text {
+      text-decoration: line-through;
+      color: var(--text-muted);
+    }
+
+    .checklist-text {
+      color: var(--text-dark);
+      line-height: 1.4;
+      font-size: 14px;
+    }
+
+    .collapsible-section {
+      background-color: var(--card-bg);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      margin-bottom: 12px;
+      border: 1px solid var(--border-color);
+    }
+
+    .collapsible-trigger {
+      width: 100%;
+      background: linear-gradient(90deg, #eff6ff 0%, #f8fbff 100%);
+      border: none;
+      padding: 14px 16px;
+      text-align: left;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--police-blue);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+    }
+
+    .collapsible-content {
+      display: none;
+      padding: 0 16px 14px 16px;
+      background-color: #fcfdff;
+    }
+
+    .collapsible-section.open .collapsible-content {
+      display: block;
+    }
+
+    .collapsible-section.open .collapsible-trigger .collapsible-arrow {
+      transform: rotate(180deg);
+    }
+
+    .collapsible-arrow {
+      transition: transform 0.2s ease;
+      font-size: 16px;
+      color: var(--text-muted);
+    }
+
+    .collapsible-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .collapsible-item {
+      padding: 10px 12px;
+      border-radius: 8px;
+      background-color: #f8fafc;
+      border: 1px solid var(--border-color);
+      color: var(--text-dark);
+      line-height: 1.45;
+      font-size: 14px;
+    }
+
+    /* Fixed Bottom Bar for Back Button */
+    .bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(244, 246, 249, 0.95);
+      backdrop-filter: blur(8px);
+      padding: 12px 16px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: center;
+      z-index: 20;
+    }
+
+    .btn-back {
+      background-color: var(--primary-navy);
+      color: #ffffff;
+      border: none;
+      width: 100%;
+      max-width: 600px;
+      padding: 14px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-back:active {
+      background-color: #05182b;
+      transform: scale(0.99);
+    }
+
+    .no-results {
+      text-align: center;
+      color: var(--text-muted);
+      padding: 20px;
+      font-style: italic;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 80px;
+      transform: translateX(-50%) translateY(0);
+      min-width: 180px;
+      max-width: 90%;
+      padding: 12px 16px;
+      background: rgba(15, 23, 42, 0.95);
+      color: #ffffff;
+      border-radius: 999px;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+      font-size: 13px;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 50;
+    }
+
+    .toast.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(-6px);
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.65);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 80;
+    }
+
+    .modal-overlay[hidden] {
+      display: none;
+    }
+
+    .modal-card {
+      width: min(100%, 420px);
+      background: var(--card-bg);
+      border-radius: 14px;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.28);
+      overflow: hidden;
+    }
+
+    .modal-header {
+      background: var(--primary-navy);
+      color: #ffffff;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .modal-close {
+      border: none;
+      background: transparent;
+      color: #ffffff;
+      font-size: 24px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .modal-body {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .modal-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .modal-input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 15px;
+      outline: none;
+    }
+
+    .modal-input.input-error {
+      border-color: var(--danger-red);
+      background: #fef2f2;
+    }
+
+    .modal-hint {
+      min-height: 1.1em;
+      font-size: 13px;
+      color: var(--danger-red);
+    }
+
+    .modal-submit {
+      background-color: var(--police-blue);
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      padding: 11px 14px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .modal-submit:active {
+      background-color: var(--police-blue-hover);
+    }
+
+    .text-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .text-list-item {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 14px 16px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border-color);
+      color: var(--text-dark);
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    @media (max-width: 540px) {
+      header {
+        padding: 12px 14px;
+      }
+
+      .header-title {
+        font-size: 15px;
+      }
+
+      .app-subtitle {
+        font-size: 9px;
+      }
+
+      .search-bar-container {
+        padding: 0 14px 10px;
+      }
+
+      .search-input {
+        font-size: 14px;
+        padding: 12px 14px;
+      }
+
+      .grid-container {
+        gap: 10px;
+        padding: 0 0 4px;
+      }
+
+      .btn {
+        padding: 14px 16px;
+        font-size: 14px;
+      }
+
+      .card {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+
+      .card-value {
+        width: 100%;
+        text-align: right;
+        word-break: break-word;
+      }
+
+      .doc-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+
+      .btn-danger {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .bottom-bar {
+        padding: 10px 14px;
+      }
+
+      .btn-back {
+        font-size: 15px;
+        padding: 13px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="header-title-container">
+      <span class="app-subtitle">Streifenhelfer</span>
+      <div class="header-title" id="page-title">Startseite</div>
+    </div>
+    <button class="search-toggle-btn" id="search-toggle" aria-label="Suche umschalten">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+    </button>
+  </header>
+
+  <!-- Search Input Bar -->
+  <div class="search-bar-container" id="search-container">
+    <div class="search-bar-inner">
+      <input type="text" class="search-input" id="search-input" placeholder="Dienststelle oder Kennung suchen..." autocomplete="off">
+      <button class="search-clear-btn" id="search-clear" type="button" aria-label="Suche löschen">&times;</button>
+    </div>
+    <div class="search-meta" id="search-meta" aria-live="polite"></div>
+  </div>
+
+  <!-- Main Content -->
+  <main id="main-content">
+    <div class="grid-container" id="app-view"></div>
+  </main>
+
+  <!-- Bottom Navigation Bar -->
+  <div class="bottom-bar" id="bottom-bar" style="display: none;">
+    <button class="btn-back" onclick="goBack()">
+      &#8592; Zurück
+    </button>
+  </div>
+
+  <div class="toast" id="toast" aria-live="polite"></div>
+
+  <div class="modal-overlay" id="password-modal" hidden aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="password-modal-title">
+      <div class="modal-header">
+        <div class="modal-title" id="password-modal-title">interne Abläufe I.Zug</div>
+        <button class="modal-close" id="password-modal-close" type="button" aria-label="Schließen">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label class="modal-label" for="password-input">Passwort</label>
+        <input class="modal-input" id="password-input" type="password" placeholder="Passwort eingeben" autocomplete="off">
+        <div class="modal-hint" id="password-hint" aria-live="polite"></div>
+        <button class="modal-submit" id="password-submit" type="button">Öffnen</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // App Data Structure
+    const appTree = {
+      'home': {
+                title: 'Interne Abläufe I.Zug',
+        type: 'buttons',
+        items: [
+          { label: 'Telefonnummer Gezi', val: '0511/8958 2600', card: true },
+          { label: 'Krankheit', target: 'internal_krankheit' },
+          { label: 'Fortbildung', target: 'internal_fortbildung' },
+          { label: 'Projekte', target: 'internal_projekte' },
+          { label: 'Einsatz', target: 'internal_einsatz' },
+          { label: 'Raumdienst', target: 'internal_raumdienst' },
+          { label: 'Urlaub', target: 'internal_urlaub' },
+          { label: 'FEM', target: 'internal_fem' },
+          { label: 'PW-Frühstück', target: 'internal_pw_fruehstueck' }
+        ]
+      },
+      'internal_telefonliste': {
+        title: 'Telefonliste',
+        type: 'buttons',
+        items: [
+          { label: 'HU intern', target: 'internal_hu_intern' },
+          { label: 'PA', target: 'internal_pa' },
+          { label: 'Leitstelle/PD/PI', target: 'internal_leitstelle' },
+          { label: 'Sonstige', target: 'internal_sonstige' }
+        ]
+      },
+      'internal_krankheit': {
+        title: 'Krankheit',
+        type: 'buttons',
+        items: [
+          { label: 'Krank vor dem Einsatz', target: 'internal_krankheit_einsatz' },
+          { label: 'Krank vor der Fortbildung', target: 'internal_krankheit_fortbildung' },
+          { label: 'Krank vor dem Projekt', target: 'internal_krankheit_projekt' },
+          { label: 'Krank im Urlaub', target: 'internal_krankheit_urlaub' },
+          { label: 'akut Krank', target: 'internal_krankheit_akut' }
+        ]
+      },
+      'internal_krankheit_einsatz': {
+        title: 'Krank vor dem Einsatz',
+        type: 'cards',
+        items: [
+          { label: 'Meldung bis spätestens 07:00 Uhr an Zugführung' },
+          { label: 'Meldung an ZuFü über Nimes (Nimes Konversation mit beiden ZuFü)' },
+          { label: 'Meldung an Truppführer' },
+          { label: 'Falls letzter in der Gliederung: Person über einem anschreiben, damit das Fahrzeug geholt wird' },
+          { label: 'Krankmeldung bis 07:30 Uhr:', val: 'Per Mail an Gezi/Per Telefon an Gezi (s. Telefonliste)' },
+          { label: 'Nach drei Tagen wird eine AU benötigt (einscannen und per Mail ans GeZi)'}
+        ]
+      },
+      'internal_krankheit_fortbildung': {
+        title: 'Krank vor der Fortbildung',
+        type: 'cards',
+        items: [
+          { label: 'Meldung bis spätestens 07:00 Uhr an Zugführung' },
+          { label: 'Krankmeldung an ZuFü über Nimes (Nimes Konversation mit beiden ZuFü)'},
+          { label: 'Meldung an Truppführer' },
+          { label: 'Krankmeldung bis 07:30 Uhr:', val: 'Per Mail an Gezi/Per Telefon an Gezi (s. Telefonliste)' },
+          { label: 'Nach drei Tagen wird eine AU benötigt (einscannen und per Mail ans GeZi)'}
+
+        ]
+      },
+      'internal_krankheit_projekt': {
+        title: 'Krank vor dem Projekt',
+        type: 'cards',
+        items: [
+        { label: 'Meldung bis spätestens 07:00 Uhr an Zugführung' },
+        { label: 'Krankmeldung an ZuFü über Nimes (Nimes Konversation mit beiden ZuFü)'}, 
+        { label: 'Meldung an Truppführer' },
+        { label: 'Falls letzter in der Gliederung: Person über einem anschreiben, damit das Fahrzeug geholt wird' },
+        { label: 'Krankmeldung bis 07:30 Uhr:', val: 'Per Mail an Gezi/Per Telefon an Gezi (s. Telefonliste)' },
+        { label: 'Nach drei Tagen wird eine AU benötigt (einscannen und per Mail ans GeZi)'},
+        { label: 'Projekt Fahndung: Nachricht in der WhatsApp Gruppe' }
+      ]
+      },
+      'internal_krankheit_urlaub': {
+        title: 'Krank im Urlaub',
+        type: 'cards',
+        items: [
+          { label: 'AU bereits ab dem ersten Tag' },
+        ]
+      },
+      'internal_krankheit_akut': {
+        title: 'akut Krank',
+        type: 'cards',
+        items: [{ label: 'Meldung an ZuFü/GruFü' },
+          {label: 'Buchung über das ZeusX Terminal'}
+        ]
+      },
+      'internal_fortbildung': {
+        title: 'Fortbildung',
+        type: 'cards',
+        items: [
+          { label: 'Fahrzeuge:', val: 'Zu Beginn der Fortbildungen sind die Fahrzeuge vorzuziehen und auf dem Parkplatz vor dem Gebäude abzuparken' },
+          { label: 'Vorträge:', val: 'Eine Vortragsliste findet ihr unter I_Zug-interne Fortbildung-Vorträge'},
+          { label: 'Vorträge:', val: 'Wenn ihr eigene Vorträge habt, ergänzt diese gerne selbstständig' }, 
+          { label: 'Zugkasse: 12€ pro Monat für Tee/Kaffee/PW-Frühstück'} 
+
+        ]
+      },
+      'internal_projekte': {
+        title: 'Projekte',
+        type: 'buttons',
+        items: [
+          { label: 'Projekt Brake', target: 'internal_projekt_brake' },
+          { label: 'Projekt KiPo', target: 'internal_projekt_kipo' },
+          { label: 'Projekt Fahndung', target: 'internal_projekt_fahndung' }
+        ]
+      },
+      'internal_projekt_brake': {
+        title: 'Projekt Brake',
+        type: 'cards',
+        items: [
+          { label: 'Projekte dürfen nur unter 60 Stunden gefahren werden!', note: true },
+          { label: 'Meldung der Projekte innerhalb der Gruppe bis Dienstag 18:00 Uhr' },
+          { label: 'Gliederung ist bei Nimes im Ordner Projekte/I.Zug zu finden' },
+          { label: 'Dienstanzug ist grundsätzlich der Einsatzanzug (Ausnahme: Unterstützung KED)' },
+          { label: 'Grundsätzlich sind SK4 Platte und Helm mitzuführen' },
+          { label: 'Bei Arbeiten in Uniform ist zusätzlich KSA mitzuführen' },
+          { label: 'Fahrzeuge für den Dienst vor Ort werden vom PK Brake gestellt' },
+          { label: 'Zivile Holster sind im Funkschrank, unten in einer Kiste zu finden:', val: 'Einzutragen in der Ausgabeliste auf dem Tisch' },
+          { label: 'MPs werden grundsätzlich aufgerüstet und im Fahrzeug mitgeführt' }
+        ]
+      },
+      'internal_projekt_kipo': {
+        title: 'Projekt KiPo',
+        type: 'cards',
+        items: [
+          { label: 'Projekte dürfen nur unter 60 Stunden gefahren werden!', note: true },
+          { label: 'Meldung der Projekte innerhalb der Gruppe bis Dienstag 18:00 Uhr' },
+          { label: 'Das Projekt findet grundsätzlich zivil statt' },
+          { label: 'Zivile Holster sind im Funkschrank, unten in einer Kiste zu finden:', val: 'Einzutragen in der Ausgabeliste auf dem Tisch' },
+          { label: 'Grundsätzlich sind SK4 Platte und Helm mitzuführen' },
+          { label: 'MPs werden grundsätzlich aufgerüstet und im Fahrzeug mitgeführt' },
+          { label: 'Funkgeräte sind ausreichend mitzuführen:', val: 'Einzutragen in der Ausgabeliste auf dem Tisch' },
+          { label: 'In Leer ist der Schlüssel für den Auswerteraum an der Wache abzuholen und nach Dienstende wieder zu hinterlegen' },
+          { label: 'Es gibt eine Excel-Datei in der ihr den aktuellen Stand der Auswertung findet:', val: 'grün = ausgewertet/abgeschlossen gelb = durch uns abgeschlossen/ Hinweis an SB über fehlende Daten rot = noch auszuwerten' },
+          { label: 'Wenn ihr Vorgänge abschließt immer eine Mail an SB / gleichermaßen bei beschädigten oder fehlenden Dateien' },
+          { label: 'Immer mit den möglichst alten Vorgängen anfangen' }
+        ]
+      },
+      'internal_projekt_fahndung': {
+        title: 'Projekt Fahndung',
+        type: 'cards',
+        items: [
+          { label: 'Projekte dürfen nur unter 60 Stunden gefahren werden!', note: true },
+          { label: 'Meldung der Projekte innerhalb der Gruppe bis Dienstag 18:00 Uhr' },
+          { label: 'Das Projekt findet grundsätzlich zivil statt' },
+          { label: 'Zivile Holster sind im Funkschrank, unten in einer Kiste zu finden:', val: 'Einzutragen in der Ausgabeliste auf dem Tisch' },
+          { label: 'Grundsätzlich sind SK4 Platte und Helm mitzuführen' },
+          { label: 'MPs werden grundsätzlich aufgerüstet und im Fahrzeug mitgeführt' },
+          { label: 'Funkgeräte sind ausreichend mitzuführen:', val: 'Einzutragen in der Ausgabeliste auf dem Tisch' }
+        ]
+      },
+      'internal_einsatz': {
+        title: 'Einsatz',
+        type: 'buttons',
+        items: [
+          { label: 'Vor dem Einsatz', target: 'internal_einsatz_vor' },
+          { label: 'Nach dem Einsatz', target: 'internal_einsatz_nach' }
+        ]
+      },
+      'internal_einsatz_vor': {
+        title: 'Vor dem Einsatz',
+        type: 'checklist',
+        items: [
+          { label: 'Der letztgenannte pro Trupp in der Gliederung zieht für den Einsatz das Fahrzeug vor' },
+          { label: 'Die Fahrzeuge werden bis 10min vor DB in taktischer Reihenfolge vor dem Geb. 8 vor dem nördlichen Seiteneingang abgestellt' },
+          { label: 'Fahrer 10 packt vor dem Einsatz die Funktaschen' },
+          { label: 'Alle anderen holen die Funktasche' },
+          { label: 'Nach der Besprechung werden MPs aufgerüstet (Fahrer ist ausgenommen)' },
+          { label: 'Im Auto werden vor dem Einsatz die Rücken- und Helmkletts bereits an die Decke geklettet' },
+          { label: 'In KVV Einsätzen werden zusätzlich die KVV-Kisten hinten links aus dem KSA Raum mitgenommen' },
+          { label: 'Feuerlöscher für Einsätze stehen mittig links im KSA Raum' }
+        ]
+      },
+      'internal_einsatz_nach': {
+        title: 'Nach dem Einsatz',
+        type: 'checklist',
+        items: [
+          { label: 'Funktaschen werden vor Ankunft auf Vollständigkeit überprüft und anschließend vor den KSA Raum gestellt' },
+          { label: 'Alle Funkgeräte müssen vor Einsatzende wieder auf den Kanal 6.BPH (KW:1757) zurückgesetzt werden '},
+          { label: 'MPs werden zurück in die Waffenkammer gebracht und auf die Annahme gewartet' },
+          { label: 'In KVV-Einsätzen wird die KVV-Kiste wieder abgerüstet und zurück gebracht' },
+          { label: 'Feuerlöscher werden wieder mittig links im KSA Raum zurückgestellt' },
+          { label: 'Die Kaffeethermen der Küche müssen ausgeleert/gespült, vorne auf dem Tisch beim Zeus Terminal abgestellt werden '},
+          { label: 'Sobald per WhatsApp die Meldung "FEM vollständig" kommt, kann sich umgezogen und ausgezeust werden' }
+        ]
+      },
+      'internal_urlaub': {
+        title: 'Urlaub',
+        type: 'cards',
+        items: [
+          { label: 'Die aktuelle Urlaubsqoute beträgt 7' },
+          { label: 'Urlaube sind spätestens zwei Wochen vor Antritt auf Zeus X zu beantragen' }
+        ]
+      },
+      'internal_fem': {
+        title: 'FEM',
+        type: 'cards',
+        items: [
+          { label: 'Beschädigungen:', val: 'Beschädigungen an HU FEM sind grundsätzlich vorher mit dem FEM Verantwortlichen des Zuges zu klären' },
+          { label: 'FEM ist im Lagerraum I.Zug (Raum 32) zu finden' },
+          { label: 'Schlüssel im Schlüsselkasten vor dem Raum' }
+        ]
+      },
+      'internal_pw_fruehstueck': {
+        title: 'PW-Frühstück',
+        type: 'vev_guide',
+        items: [
+          {
+            title: 'Brötchen',
+            points: [
+              '2 Brötchen pro Person',
+              'Hauptsächlich Körnerbrötchen'
+            ]
+          },
+          {
+            title: 'Bartsch',
+            points: [
+              'Kräutermett & Zwiebeln (ca. 0,6kg pro 30 Personen)',
+              '5 große Packungen Kräuterfleischsalat (für ca. 30 Personen)',
+              '2 kleine vegetarische Packungen Fleischsalat'
+            ]
+          },
+          {
+            title: 'Einkauf',
+            points: [
+              'Aufschnitt: max. 2 Packungen, 1x veganer Aufschnitt, 3 Packungen Käse',
+              'Aufstrich: Kühlschränke auf Butter/Margarine checken, 1x Kräuterfrischkäse',
+              'Vegan: Humus in verschiedenen Varianten (gerne NOA)',
+              'Eier: 1,5 Stück pro Person (Freilandhaltung)',
+              'Saft: verschiedene Säfte, überwiegend Multi',
+              'Gemüse: 2x Gurken, 4x Paprika, 500g kleine Tomaten'
+            ]
+          }
+        ]
+      },
+      'internal_raumdienst': {
+        title: 'Raumdienst',
+        type: 'table_cards',
+        tableRows: [
+          ['August', 'September', 'Oktober', 'November', 'Dezember', 'Januar', 'Februar', 'März'],
+          ['12', '13', '14', '12', '13', '14', '12', '13']
+        ],
+        tableNote: 'Grundsätzlich ist der jeweilige Trupp für den Raumdienst zuständig. Allgemeine Arbeiten bzgl. der Sauberkeit (Spülmaschine ausräumen/Müll rausbringen etc.) können aber von jedem übernommen werden!',
+        items: [
+          { label: 'Müll:', val: 'täglich im Dienst die Mülleimer kontrollieren und bei Bedarf ausleeren' },
+          { label: 'Spülmaschine:', val: 'Vor dem Dienst die Spülmaschine ausräumen' },
+          { label: 'Einkauf:', val: 'mindestens 1x im Monat sind die Vorräte zu kontrollieren und bei Bedarf aufzufüllen (Rechnungen der Einkäufe per WhatsApp an Web)' },
+          { label: 'Tische:', val: 'Nach Dienstende die Tische und die Küchenzeile mit einem nassen Lappen abwischen' },
+          { label: 'Kaffeethermen:', val: 'min. 1x im Monat sind die Kaffeethermen mit einem Spültab und Wasser über Nacht zu reinigen'},
+          { label: 'Einsatzpfand:', val: 'zur Küche bringen und neue Kisten holen'}
+        ]
+      }
+    };
+
+    // State Management
+    let historyStack = ['home'];
+    let currentFilter = '';
+
+    // DOM Elements
+    const pageTitleEl = document.getElementById('page-title');
+    const appViewEl = document.getElementById('app-view');
+    const bottomBarEl = document.getElementById('bottom-bar');
+    const searchToggleBtn = document.getElementById('search-toggle');
+    const searchContainer = document.getElementById('search-container');
+    const searchInput = document.getElementById('search-input');
+    const searchClearBtn = document.getElementById('search-clear');
+    const searchMetaEl = document.getElementById('search-meta');
+    const toastEl = document.getElementById('toast');
+    const passwordModalEl = document.getElementById('password-modal');
+    const passwordInputEl = document.getElementById('password-input');
+    const passwordHintEl = document.getElementById('password-hint');
+    const passwordSubmitBtn = document.getElementById('password-submit');
+    const passwordCloseBtn = document.getElementById('password-modal-close');
+
+    function init() {
+      renderPage();
+
+      searchInput.addEventListener('input', (e) => {
+        currentFilter = e.target.value.toLowerCase().trim();
+        filterCurrentCards();
+      });
+
+      searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          hideSearch();
+        }
+      });
+
+      searchClearBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        currentFilter = '';
+        filterCurrentCards();
+        searchInput.focus();
+      });
+
+      searchToggleBtn.addEventListener('click', () => {
+        const isVisible = searchContainer.classList.contains('active');
+        if (isVisible) {
+          hideSearch();
+        } else {
+          searchContainer.classList.add('active');
+          searchInput.focus();
+        }
+      });
+
+      passwordSubmitBtn.addEventListener('click', handlePasswordSubmit);
+      passwordCloseBtn.addEventListener('click', closePasswordModal);
+      passwordInputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handlePasswordSubmit();
+        }
+      });
+      passwordModalEl.addEventListener('click', (e) => {
+        if (e.target === passwordModalEl) {
+          closePasswordModal();
+        }
+      });
+    }
+
+    function hideSearch() {
+      searchContainer.classList.remove('active');
+      searchInput.value = '';
+      currentFilter = '';
+      filterCurrentCards();
+    }
+
+    function navigateTo(targetKey) {
+      if (!appTree[targetKey]) {
+        alert('Inhalt befindet sich noch im Aufbau.');
+        return;
+      }
+      historyStack.push(targetKey);
+      hideSearch();
+      renderPage();
+    }
+
+    function goBack() {
+      if (historyStack.length > 1) {
+        const currentKey = historyStack[historyStack.length - 1];
+        if (currentKey && currentKey.startsWith('internal_einsatz_')) {
+          localStorage.removeItem(`checklist:${currentKey}`);
+        }
+        historyStack.pop();
+        hideSearch();
+        renderPage();
+      }
+    }
+
+    function openPasswordModal() {
+      passwordHintEl.textContent = '';
+      passwordInputEl.value = '';
+      passwordInputEl.classList.remove('input-error');
+      passwordModalEl.hidden = false;
+      passwordModalEl.setAttribute('aria-hidden', 'false');
+      passwordInputEl.focus();
+    }
+
+    function closePasswordModal() {
+      passwordModalEl.hidden = true;
+      passwordModalEl.setAttribute('aria-hidden', 'true');
+      passwordInputEl.value = '';
+      passwordInputEl.classList.remove('input-error');
+      passwordHintEl.textContent = '';
+    }
+
+    function handlePasswordSubmit() {
+      if (passwordInputEl.value === '') {
+        closePasswordModal();
+        navigateTo('internal_ablaeufe');
+        return;
+      }
+
+      passwordInputEl.classList.add('input-error');
+      passwordHintEl.textContent = 'Das Passwort war falsch.';
+      passwordInputEl.focus();
+    }
+
+    function renderPage() {
+      const currentKey = historyStack[historyStack.length - 1];
+      const pageData = appTree[currentKey];
+
+      // Update Title
+      pageTitleEl.textContent = pageData.title;
+
+      // Toggle Back Button Visibility
+      if (historyStack.length > 1) {
+        bottomBarEl.style.display = 'flex';
+      } else {
+        bottomBarEl.style.display = 'none';
+      }
+
+      // Toggle Search Icon Visibility
+      if (pageData.hasSearch) {
+        searchToggleBtn.style.display = 'flex';
+        searchInput.placeholder = `Suche ${pageData.title}…`;
+      } else {
+        searchToggleBtn.style.display = 'none';
+      }
+
+      // Clear Current View
+      appViewEl.innerHTML = '';
+
+      // Render View Content
+      if (pageData.type === 'buttons') {
+        pageData.items.forEach(item => {
+          if (item.card) {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+              <span class="card-title">${item.label}</span>
+              <span class="card-value">${item.val}</span>
+            `;
+            appViewEl.appendChild(card);
+            return;
+          }
+
+          const btn = document.createElement('button');
+          btn.className = 'btn';
+          btn.innerHTML = `<span>${item.label}</span><span class="btn-arrow">&#8250;</span>`;
+          btn.onclick = () => {
+            // Passwort-geschützte Bereiche öffnen
+            if (item.passwordProtected) {
+              openPasswordModal();
+              return;
+            }
+            // Navigate to subpage if target specified
+            if (item.target) {
+              navigateTo(item.target);
+              return;
+            }
+            // Open image file in a new tab if img specified
+            if (item.img) {
+              window.open(item.img, '_blank');
+              return;
+            }
+            // Open PDF in a new tab if pdf specified
+            if (item.pdf) {
+              window.open(item.pdf, '_blank');
+              return;
+            }
+            // Open URL in a new tab if url specified
+            if (item.url) {
+              window.open(item.url, '_blank');
+              return;
+            }
+            // Fallback: notify user
+            alert('Aktion nicht definiert für: ' + item.label);
+          };
+          appViewEl.appendChild(btn);
+        });
+      } 
+      else if (pageData.type === 'table_cards') {
+        renderTableCardsPage(pageData);
+      }
+      else if (pageData.type === 'vev_guide') {
+        renderVevGuide(pageData.items);
+      }
+      else if (pageData.type === 'checklist') {
+        renderChecklist(pageData.items);
+      }
+      else if (pageData.type === 'cards') {
+        renderCards(pageData.items);
+      } 
+      else if (pageData.type === 'doc_buttons') {
+        pageData.items.forEach(item => {
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.innerHTML = `
+            <div class="doc-row">
+              <span class="card-title">${item.label}</span>
+              <button class="btn-danger" onclick="navigateTo('${item.target}')">Fehlt</button>
+            </div>
+          `;
+          appViewEl.appendChild(card);
+        });
+      }
+      else if (pageData.type === 'text_list') {
+        renderTextList(pageData.items);
+      }
+      else if (pageData.type === 'bepo_special') {
+        renderCards(pageData.items);
+        if (pageData.extraButton) {
+          const btn = document.createElement('button');
+          btn.className = 'btn';
+          btn.style.marginTop = '8px';
+          btn.innerHTML = `<span>${pageData.extraButton.label}</span><span class="btn-arrow">&#8250;</span>`;
+          btn.onclick = () => navigateTo(pageData.extraButton.target);
+          appViewEl.appendChild(btn);
+        }
+      }
+
+      // Scroll to top of main area
+      document.getElementById('main-content').scrollTop = 0;
+    }
+
+    function renderTextList(items) {
+      const section = document.createElement('div');
+      section.className = 'text-list';
+
+      items.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'text-list-item';
+        row.textContent = item.label;
+        section.appendChild(row);
+      });
+
+      appViewEl.appendChild(section);
+    }
+
+    function renderTableCardsPage(pageData) {
+      if (Array.isArray(pageData.tableRows) && pageData.tableRows.length > 0) {
+        const tableSection = document.createElement('div');
+        tableSection.className = 'table-section';
+
+        const table = document.createElement('table');
+        table.className = 'info-table';
+
+        pageData.tableRows.forEach((rowValues, rowIndex) => {
+          const tr = document.createElement(rowIndex === 0 ? 'thead' : 'tbody');
+          const row = document.createElement('tr');
+          rowValues.forEach(value => {
+            const cell = document.createElement(rowIndex === 0 ? 'th' : 'td');
+            cell.textContent = value;
+            row.appendChild(cell);
+          });
+          tr.appendChild(row);
+          table.appendChild(tr);
+        });
+
+        tableSection.appendChild(table);
+        appViewEl.appendChild(tableSection);
+      }
+
+      if (pageData.tableNote) {
+        const note = document.createElement('div');
+        note.className = 'info-note';
+        note.textContent = pageData.tableNote;
+        appViewEl.appendChild(note);
+      }
+
+      renderCards(pageData.items);
+    }
+
+    function renderChecklist(items) {
+      const note = document.createElement('div');
+      note.className = 'info-note';
+      note.textContent = 'Hinweis: Hake die Kästchen ab, sobald du die Aufgabe erledigt hast';
+      appViewEl.appendChild(note);
+
+      const checklist = document.createElement('div');
+      checklist.className = 'checklist';
+
+      const storageKey = `checklist:${historyStack[historyStack.length - 1]}`;
+      const completed = JSON.parse(localStorage.getItem(storageKey) || '[]');
+
+      items.forEach((item, index) => {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'checklist-item';
+        if (completed.includes(index)) {
+          row.classList.add('checked');
+        }
+
+        const box = document.createElement('span');
+        box.className = 'checklist-checkbox';
+        box.textContent = completed.includes(index) ? '✓' : '';
+
+        const text = document.createElement('span');
+        text.className = 'checklist-text';
+        text.textContent = item.label;
+
+        row.appendChild(box);
+        row.appendChild(text);
+
+        row.addEventListener('click', () => {
+          const current = JSON.parse(localStorage.getItem(storageKey) || '[]');
+          const next = current.includes(index)
+            ? current.filter(i => i !== index)
+            : [...current, index];
+          localStorage.setItem(storageKey, JSON.stringify(next));
+          row.classList.toggle('checked', next.includes(index));
+          box.textContent = next.includes(index) ? '✓' : '';
+        });
+
+        checklist.appendChild(row);
+      });
+
+      appViewEl.appendChild(checklist);
+    }
+
+    function renderVevGuide(items) {
+      const note = document.createElement('div');
+      note.className = 'info-note';
+      note.textContent = 'Hinweis: Klicke auf die Punkte für mehr Informationen';
+      appViewEl.appendChild(note);
+
+      items.forEach(section => {
+        const sectionEl = document.createElement('div');
+        sectionEl.className = 'collapsible-section';
+
+        const trigger = document.createElement('button');
+        trigger.className = 'collapsible-trigger';
+        trigger.type = 'button';
+        trigger.innerHTML = `
+          <span>${section.title}</span>
+          <span class="collapsible-arrow">▾</span>
+        `;
+
+        const content = document.createElement('div');
+        content.className = 'collapsible-content';
+
+        const list = document.createElement('div');
+        list.className = 'collapsible-list';
+        section.points.forEach(point => {
+          const item = document.createElement('div');
+          item.className = 'collapsible-item';
+          item.textContent = point;
+          list.appendChild(item);
+        });
+        content.appendChild(list);
+
+        trigger.addEventListener('click', () => {
+          sectionEl.classList.toggle('open');
+        });
+
+        sectionEl.appendChild(trigger);
+        sectionEl.appendChild(content);
+        appViewEl.appendChild(sectionEl);
+      });
+    }
+
+    function renderCards(items) {
+      let visibleCount = 0;
+      items.forEach(item => {
+        const label = item.label ?? '';
+        const value = item.val ?? '';
+        const normalizedFilter = currentFilter ? currentFilter.toLowerCase() : '';
+        const matches = !normalizedFilter ||
+                        label.toLowerCase().includes(normalizedFilter) ||
+                        value.toLowerCase().includes(normalizedFilter);
+        const hasValue = value !== '';
+
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style.display = matches ? 'flex' : 'none';
+
+        if (item.note) {
+          card.className = 'info-note';
+          card.style.display = matches ? 'block' : 'none';
+          card.innerHTML = `<strong>Hinweis:</strong> ${label}`;
+        } else {
+          const titleHtml = label ? `<span class="card-title">${label}</span>` : '';
+          const valueHtml = hasValue ? `<span class="card-value">${value}</span>` : '';
+          card.innerHTML = `${titleHtml}${valueHtml}`;
+        }
+
+        if (item.color) {
+          card.style.borderLeftColor = item.color;
+          const valueEl = card.querySelector('.card-value');
+          if (valueEl) {
+            valueEl.style.color = item.color;
+          }
+        }
+
+        if (hasValue) {
+          card.classList.add('clickable');
+          card.tabIndex = 0;
+          card.setAttribute('role', 'button');
+          card.title = 'Klicke oder drücke Enter, um den Wert zu kopieren';
+          card.addEventListener('click', () => {
+            navigator.clipboard.writeText(value).then(() => {
+              showToast(`Kopiert: ${value}`);
+            }).catch(() => {
+              showToast('Kopieren fehlgeschlagen');
+            });
+          });
+          card.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              card.click();
+            }
+          });
+        }
+
+        appViewEl.appendChild(card);
+
+        if (matches) visibleCount++;
+      });
+
+      if (visibleCount === 0 && currentFilter !== '') {
+        const noRes = document.createElement('div');
+        noRes.className = 'no-results';
+        noRes.textContent = 'Keine Ergebnisse gefunden.';
+        appViewEl.appendChild(noRes);
+      }
+
+      return visibleCount;
+    }
+
+    function updateSearchMeta(visibleCount) {
+      if (!searchMetaEl) return;
+      if (!currentFilter) {
+        searchMetaEl.textContent = '';
+        return;
+      }
+      const label = visibleCount === 1 ? 'Eintrag' : 'Einträge';
+      searchMetaEl.textContent = `${visibleCount} ${label} gefunden`;
+    }
+
+    function filterCurrentCards() {
+      const currentKey = historyStack[historyStack.length - 1];
+      const pageData = appTree[currentKey];
+      if (!pageData) return;
+
+      // If current page shows cards or BEPO special cards, render and filter normally
+      if (pageData.type === 'cards' || pageData.type === 'bepo_special') {
+        appViewEl.innerHTML = '';
+        const visibleCount = renderCards(pageData.items);
+        updateSearchMeta(visibleCount);
+        if (pageData.type === 'bepo_special' && pageData.extraButton && !currentFilter) {
+          const btn = document.createElement('button');
+          btn.className = 'btn';
+          btn.style.marginTop = '8px';
+          btn.innerHTML = `<span>${pageData.extraButton.label}</span><span class="btn-arrow">&#8250;</span>`;
+          btn.onclick = () => navigateTo(pageData.extraButton.target);
+          appViewEl.appendChild(btn);
+        }
+        if (pageData.type === 'bepo_special' && pageData.extraButtons && Array.isArray(pageData.extraButtons) && !currentFilter) {
+          pageData.extraButtons.forEach(extra => {
+            if (pageData.extraButton && pageData.extraButton.target === extra.target) return;
+            const btn = document.createElement('button');
+            btn.className = 'btn';
+            btn.style.marginTop = '8px';
+            btn.innerHTML = `<span>${extra.label}</span><span class="btn-arrow">&#8250;</span>`;
+            btn.onclick = () => navigateTo(extra.target);
+            appViewEl.appendChild(btn);
+          });
+        }
+        return;
+      }
+
+      // For buttons pages that enable search (e.g. 'funk'), aggregate child card items
+      // from their target pages and render them so the search can match Dienststellen/Kennung
+      if (pageData.type === 'buttons' && pageData.hasSearch) {
+        const aggregated = [];
+        pageData.items.forEach(btn => {
+          const key = btn.target;
+          if (!key) return;
+          const child = appTree[key];
+          if (!child || !Array.isArray(child.items)) return;
+
+          // If child page already contains cards, collect them
+          if (child.type === 'cards') {
+            child.items.forEach(it => {
+              if (it.label && it.val) aggregated.push({ label: it.label, val: it.val, color: it.color });
+            });
+          }
+
+          // If child is a buttons page (e.g., PD listing PIs), descend one level
+          if (child.type === 'buttons') {
+            child.items.forEach(sub => {
+              const subKey = sub.target;
+              if (!subKey) return;
+              const subChild = appTree[subKey];
+              if (!subChild || !Array.isArray(subChild.items)) return;
+              if (subChild.type === 'cards') {
+                subChild.items.forEach(it => {
+                  if (it.label && it.val) aggregated.push({ label: it.label, val: it.val, color: it.color });
+                });
+              }
+            });
+          }
+        });
+
+        appViewEl.innerHTML = '';
+        const visibleCount = renderCards(aggregated);
+        updateSearchMeta(visibleCount);
+        return;
+      }
+    }
+
+    // Start App
+    init();
+  </script>
+</body>
+</html>
