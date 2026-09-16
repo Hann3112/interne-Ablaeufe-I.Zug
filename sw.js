@@ -1,9 +1,9 @@
 const CACHE_NAME = 'streifenhelfer-v2';
 const ASSETS_TO_CACHE = [
   './',
-  './index.html',
+  './interneAB.html',
   './manifest.json',
-  './icon-192.png'
+  './Zuglogo.png'
 ];
 
 self.addEventListener('install', (event) => {
