@@ -1,8 +1,8 @@
 {
-  "name": "Streifenhelfer",
-  "short_name": "Streifenhelfer",
-  "description": "Schnellübersicht für den Streifendienst",
-  "start_url": "./index.html",
+  "name": "Interne Abläufe I.Zug",
+  "short_name": "Interne Abläufe I.Zug",
+  "description": "Interne Abläufe I.Zug",
+  "start_url": "./interneAB.html",
   "display": "standalone",
   "background_color": "#0a2540",
   "theme_color": "#0a2540",
